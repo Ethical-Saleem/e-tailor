@@ -40,7 +40,7 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'application-name',                      content: 'eTailor' },
         { name: 'msapplication-TileColor',               content: '#1a1208' },
-        { name: 'msapplication-TileImage',               content: '/icons/icon-144x144.png' },
+        { name: 'msapplication-TileImage',               content: '/icons/icon-144.png' },
         { name: 'format-detection',                      content: 'telephone=no' },
 
         // ── Open Graph (WhatsApp, Facebook, LinkedIn shares) ─────────────────
