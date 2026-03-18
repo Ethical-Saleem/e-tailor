@@ -126,6 +126,7 @@
         </p>
         <p class="text-xs text-ink-subtle">Version 1.0.0</p>
         <p class="text-xs text-ink-subtle">Built for tailors, by design</p>
+        <p class="text-xs text-ink-subtle">Primecodes Global Tech ── 2026</p>
       </div>
 
     </div>

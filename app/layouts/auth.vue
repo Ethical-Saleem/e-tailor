@@ -16,8 +16,13 @@
     </div>
 
     <!-- Footer -->
-    <p class="mt-8 text-white/20 text-xs text-center">
-      Works offline · Your data, always yours
-    </p>
+    <div class="mt-8">
+      <p class="text-white/20 text-xs text-center">
+        Your data ── always yours
+      </p>
+      <p class="mt-1 text-white/20 text-xs text-center">
+        Primecodes Global Tech · 2026
+      </p>
+    </div>
   </div>
 </template>
