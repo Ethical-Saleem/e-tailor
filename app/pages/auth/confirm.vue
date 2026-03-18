@@ -392,7 +392,7 @@ async function resolveByType(type: string): Promise<void> {
       await authStore.init()
 
       state.value = 'verified'
-      // startCountdown('/')
+      startCountdown('/')
       return
     case 'email_change':
       state.value = 'email_changed'
@@ -423,6 +423,11 @@ async function resolveDestination(_aud: string, _provider: string): Promise<void
 
   // If email is newly confirmed (just registered), show verified screen
   if (user.email_confirmed_at) {
+     await finishShopSetup()   // ← insert shop now that session is active
+
+    const authStore = useAuthStore()
+    await authStore.init()
+
     state.value = 'verified'
     startCountdown('/')
   } else {

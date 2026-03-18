@@ -18,7 +18,7 @@ export const useAuthStore = defineStore('auth', {
     userId: null,
     shop: null,
     role: null,
-    isLoading: true,
+    isLoading: false,
   }),
 
   getters: {
@@ -41,21 +41,7 @@ export const useAuthStore = defineStore('auth', {
       // Guard: skip shop fetch entirely on auth flow pages.
       // These pages handle their own session/shop logic and the shop
       // may not exist yet (e.g. confirm page runs before shop is created).
-      {
-        const route = useRoute()
-        const AUTH_ROUTES = [
-          '/auth/login',
-          '/auth/register',
-          '/auth/confirm',
-          '/auth/confirm-pending',
-          '/auth/reset-password',
-          '/auth/update-password',
-        ]
-        if (AUTH_ROUTES.some(r => route.path.startsWith(r))) {
-          this.isLoading = false
-          return
-        }
-      }
+      this.checkAuthRoute()
 
       this.isLoading = true
       try {
@@ -122,6 +108,24 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (err) {
         console.warn('[Auth] IndexedDB unavailable:', err)
+      }
+    },
+
+    checkAuthRoute() {
+      const nuxtApp = useNuxtApp()
+      const route = nuxtApp.$router.currentRoute.value
+
+      const AUTH_ROUTES = [
+        '/auth/login',
+        '/auth/register',
+        '/auth/confirm',
+        '/auth/confirm-pending',
+        '/auth/reset-password',
+        '/auth/update-password',
+      ]
+      if (AUTH_ROUTES.some(r => route.path.startsWith(r))) {
+        this.isLoading = false
+        return
       }
     },
 

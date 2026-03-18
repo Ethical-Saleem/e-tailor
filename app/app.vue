@@ -7,7 +7,7 @@
       before shopId / shop are available. Typically < 300ms on first load,
       near-instant on repeat visits (served from local cache).
     -->
-    <div v-if="auth.isLoading && !AUTH_ROUTES.some(r => route.path.startsWith(r))" class="fixed inset-0 bg-ink flex flex-col items-center justify-center z-50">
+    <div v-if="auth.isLoading" class="fixed inset-0 bg-ink flex flex-col items-center justify-center z-50">
       <img src="/icons/icon.png" alt="e-Tailor Logo" width="80" height="80" class="mb-4" />
       <p class="font-display text-4xl text-white mb-3">e<span class="text-gold">Tailor</span></p>
       <div class="flex items-center gap-2 text-white/40 text-sm">

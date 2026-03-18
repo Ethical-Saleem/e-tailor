@@ -18,6 +18,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // ── 2. Init auth (must happen after DB is open so cache fallback works) ────
   const auth = useAuthStore(nuxtApp.$pinia)
   try {
+    auth.isLoading = true
     await auth.init()
   } catch (err) {
     console.error('[Auth] Init failed in plugin:', err)
