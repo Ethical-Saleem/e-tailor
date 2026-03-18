@@ -129,8 +129,20 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6 overflow-y-auto max-h-[85vh]">
-            <h3 class="font-display text-2xl text-ink mb-1">Add Material</h3>
-            <p class="text-sm text-ink-muted mb-5">Add to your inventory</p>
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1 min-w-0 pr-3">
+                <h3 class="font-display text-2xl text-ink mb-1">Add Material</h3>
+                <p class="text-sm text-ink-muted mb-5">Add to your inventory</p>
+              </div>
+              <div class="flex-shrink-0">
+                <button
+                  class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center"
+                  @click="addDrawer = false"
+                >
+                  <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+                </button>
+              </div>
+            </div>
 
             <div class="space-y-4">
               <div>
@@ -204,14 +216,26 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6 overflow-y-auto max-h-[85vh]">
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <h3 class="font-display text-2xl text-ink">{{ selectedMaterial.name }}</h3>
-                <p class="text-sm text-ink-muted capitalize">{{ selectedMaterial.category }} · {{ selectedMaterial.color }}</p>
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1 min-w-0 pr-3">
+                <div class="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 class="font-display text-2xl text-ink">{{ selectedMaterial.name }}</h3>
+                    <p class="text-sm text-ink-muted capitalize">{{ selectedMaterial.category }} · {{ selectedMaterial.color }}</p>
+                  </div>
+                  <p :class="['font-mono-dm text-2xl font-medium', stockClass(selectedMaterial)]">
+                    {{ selectedMaterial.currentStock }} <span class="text-sm text-ink-muted font-normal">{{ selectedMaterial.unit }}s</span>
+                  </p>
+                </div>
               </div>
-              <p :class="['font-mono-dm text-2xl font-medium', stockClass(selectedMaterial)]">
-                {{ selectedMaterial.currentStock }} <span class="text-sm text-ink-muted font-normal">{{ selectedMaterial.unit }}s</span>
-              </p>
+              <div class="flex-shrink-0">
+                <button
+                  class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center"
+                  @click="detailDrawer = false"
+                >
+                  <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+                </button>
+              </div>
             </div>
 
             <!-- Tabs -->

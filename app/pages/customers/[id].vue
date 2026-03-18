@@ -162,6 +162,16 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6">
+            <div class="flex items-end justify-end">
+              <div class="flex-shrink-0">
+                <button
+                  class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center"
+                  @click="profileDrawer = false"
+                >
+                  <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+                </button>
+              </div>
+            </div>
             <div class="flex items-start justify-between mb-4">
               <div>
                 <h3 class="font-display text-2xl text-ink">{{ selectedProfile.label }}</h3>
@@ -193,8 +203,20 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6 overflow-y-auto max-h-[88vh]">
-            <h3 class="font-display text-2xl text-ink mb-1">New Measurements</h3>
-            <p class="text-sm text-ink-muted mb-5">for {{ customer.name }}</p>
+            <div class="flex items-start justify-betweem mb-3">
+              <div class="flex-1 min-w-0 pr-3">
+                <h3 class="font-display text-2xl text-ink mb-1">New Measurements</h3>
+                <p class="text-sm text-ink-muted mb-5">for {{ customer.name }}</p>
+              </div>
+              <div class="flex-shrink-0">
+                <button
+                  class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center"
+                  @click="addMeasDrawer = false"
+                >
+                  <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+                </button>
+              </div>
+            </div>
 
             <div class="space-y-4">
               <div>

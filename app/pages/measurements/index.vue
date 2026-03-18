@@ -141,14 +141,26 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6 overflow-y-auto max-h-[90vh]">
-            <h3 class="font-display text-2xl text-ink mb-1">
-              {{ newForm.isTemplate ? 'New Template' : 'New Measurement Profile' }}
-            </h3>
-            <p class="text-sm text-ink-muted mb-5">
-              {{ newForm.isTemplate ? 'Reusable across any customer' : 'Saved to a specific customer' }}
-            </p>
 
-            <div class="space-y-4">
+            <!-- Header -->
+            <div class="flex items-start justify-between mb-1">
+              <div>
+                <h3 class="font-display text-2xl text-ink">
+                  {{ newForm.isTemplate ? 'New Template' : 'New Measurement Profile' }}
+                </h3>
+                <p class="text-sm text-ink-muted mt-0.5">
+                  {{ newForm.isTemplate ? 'Reusable across any customer' : 'Saved to a specific customer' }}
+                </p>
+              </div>
+              <button
+                class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center flex-shrink-0 mt-0.5"
+                @click="closeAddDrawer"
+              >
+                <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+              </button>
+            </div>
+
+            <div class="space-y-4 mt-5">
 
               <!-- Template toggle -->
               <div class="flex items-center justify-between bg-cream rounded-xl p-3">
@@ -354,8 +366,17 @@
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span v-if="selectedProfile.isTemplate" class="badge badge-ready text-2xs py-0.5">Template</span>
-                <button class="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center" @click="confirmDelete(selectedProfile); detailDrawer = false">
+                <button
+                  class="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center"
+                  @click="confirmDelete(selectedProfile); detailDrawer = false"
+                >
                   <Trash2 :size="14" stroke-width="2" class="stroke-danger" />
+                </button>
+                <button
+                  class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center"
+                  @click="detailDrawer = false"
+                >
+                  <X :size="16" stroke-width="2" class="stroke-ink-muted" />
                 </button>
               </div>
             </div>
@@ -473,7 +494,18 @@
         <div class="drawer">
           <div class="drawer-handle" />
           <div class="px-5 pb-6">
-            <h3 class="font-display text-2xl text-ink mb-2">Delete Profile?</h3>
+
+            <!-- Header -->
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="font-display text-2xl text-ink">Delete Profile?</h3>
+              <button
+                class="w-8 h-8 rounded-lg bg-cream flex items-center justify-center flex-shrink-0"
+                @click="deleteTarget = null"
+              >
+                <X :size="16" stroke-width="2" class="stroke-ink-muted" />
+              </button>
+            </div>
+
             <p class="text-sm text-ink-muted mb-6">
               "<strong>{{ deleteTarget.label }}</strong>" will be permanently removed. This cannot be undone.
             </p>
