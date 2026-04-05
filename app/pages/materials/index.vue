@@ -76,11 +76,11 @@
       </div>
 
       <div v-else class="space-y-2.5">
-        <div
+        <NuxtLink
           v-for="m in filtered"
           :key="m.id"
           class="card p-4 cursor-pointer hover:shadow-card-md transition-all duration-150"
-          @click="selectedMaterial = m; detailDrawer = true"
+          :to="`/materials/${m.id}`"
         >
           <!-- Top row -->
           <div class="flex items-start justify-between mb-2.5">
@@ -119,7 +119,7 @@
               :style="{ width: `${Math.min(100, m.minimumStock > 0 ? (m.currentStock / (m.minimumStock * 3)) * 100 : 80)}%` }"
             />
           </div>
-        </div>
+        </NuxtLink>
       </div>
     </div>
 

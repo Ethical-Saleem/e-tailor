@@ -139,6 +139,7 @@ import {
   Ruler, Package, BarChart3, Settings, HelpCircle,
   Download, RefreshCw, CheckCircle2, WifiOff,
   AlertCircle, Loader2, LogOut, Shield,
+  Store,
 } from 'lucide-vue-next'
 import { useAuthStore }    from '~/stores/auth'
 import { useOrdersStore }  from '~/stores/orders'
@@ -209,6 +210,14 @@ const toolItems = computed(() => [
 ])
 
 const businessItems = computed(() => [
+  {
+    to:          '/store',
+    icon:        Store,
+    label:       'Store Front',
+    description: 'Store, sales, items management',
+    iconBg:      'bg-success/10',
+    iconColor:   'stroke-success',
+  },
   {
     to:          '/reports',
     icon:        BarChart3,

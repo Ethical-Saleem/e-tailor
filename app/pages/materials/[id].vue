@@ -51,7 +51,7 @@
           </div>
           <div class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center">
             <p class="font-mono-dm text-xl font-medium text-white leading-none mb-1">
-              {{ fmt(material.currentStock * material.currentUnitCost) }}
+              {{ fmt(material?.currentStock * material?.currentUnitCost) }}
             </p>
             <p class="text-2xs text-white/40 uppercase tracking-wider">Stock value</p>
           </div>
@@ -109,19 +109,19 @@
           <div class="flex items-center justify-between px-4 py-3">
             <span class="text-sm text-ink-muted">Current unit cost</span>
             <span class="font-mono-dm text-sm font-medium text-ink">
-              {{ fmt(material.currentUnitCost) }} / {{ material.unit }}
+              {{ fmt(material?.currentUnitCost) }} / {{ material?.unit }}
             </span>
           </div>
           <div class="flex items-center justify-between px-4 py-3">
             <span class="text-sm text-ink-muted">Average unit cost</span>
             <span class="font-mono-dm text-sm text-ink-muted">
-              {{ fmt(material.averageUnitCost) }} / {{ material.unit }}
+              {{ fmt(material?.averageUnitCost) }} / {{ material?.unit }}
             </span>
           </div>
           <div class="flex items-center justify-between px-4 py-3">
             <span class="text-sm text-ink-muted">Total stock value</span>
             <span class="font-mono-dm text-sm font-semibold text-ink">
-              {{ fmt(material.currentStock * material.currentUnitCost) }}
+              {{ fmt(material?.currentStock * material?.currentUnitCost) }}
             </span>
           </div>
           <div class="flex items-center justify-between px-4 py-3">
@@ -723,6 +723,9 @@ async function load() {
 
   if (!m) { material.value = null; isLoading.value = false; return }
 
+  console.log("materials:", m)
+  console.log("history:", history)
+
   material.value     = m
   priceHistory.value = history
   useHead({ title: `${m.name} — eTailor` })
@@ -755,7 +758,12 @@ const materialUnits = [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(n: number) { return `${auth.currencySymbol}${n.toLocaleString()}` }
+function fmt(n: number) { 
+  if (!n) {
+    return `${auth.currencySymbol}${0}`
+  }
+  return `${auth.currencySymbol}${n.toLocaleString()}`
+ }
 function formatDate(d: string) { return dayjs(d).format('MMM D, YYYY') }
 
 onMounted(load)

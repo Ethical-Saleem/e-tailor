@@ -10,7 +10,7 @@ import { useOfflineSync } from '~/composables/useOfflineSync'
 import { useAuthStore } from '~/stores/auth'
 import type {
   Order, OrderForm, OrderStatus, OrderPriority, OrderItem,
-  OrderEvent, Payment, PaymentMethod, GarmentCategory,
+  OrderEvent, Payment, PaymentMethod, GarmentCategory, MaterialUsageEntry, AdditionalCost,
 } from '~/types/models'
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
@@ -171,16 +171,37 @@ export function useOrders() {
   }
 
   // ── Price calculator ───────────────────────────────────────────────────────
-  function calcPricing(items: Pick<OrderItem, 'quantity' | 'unitPrice'>[], discount: number, discountType: 'fixed' | 'percent', taxRate: number) {
-    const subtotal    = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+  function calcPricing(
+    items: Pick<OrderItem, 'quantity' | 'unitPrice'>[],
+    materialUsage: Pick<MaterialUsageEntry, 'quantity' | 'unitPriceCharged' | 'chargeToCustomer'>[],
+    additionalCosts: Pick<AdditionalCost, 'amount'>[],
+    discount: number,
+    discountType: 'fixed' | 'percent',
+    taxRate: number,
+  ) {
+    const itemsSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+    const materialSubtotal = materialUsage
+      .filter(m => m.chargeToCustomer)
+      .reduce((s, m) => s + m.quantity * m.unitPriceCharged, 0)
+    const extrasSubtotal = additionalCosts.reduce((s, c) => s + c.amount, 0)
+    const subtotal = itemsSubtotal + materialSubtotal + extrasSubtotal
+
     const discountAmt = discountType === 'percent'
       ? subtotal * (discount / 100)
       : discount
-    const taxable     = subtotal - discountAmt
-    const tax         = taxable * (taxRate / 100)
-    const total       = taxable + tax
+    const taxable = subtotal - discountAmt
+    const tax = taxable * (taxRate / 100)
+    const total = taxable + tax
 
-    return { subtotal, discount: discountAmt, tax, total }
+    return {
+      subtotal,
+      itemsSubtotal,
+      materialSubtotal,
+      extrasSubtotal,
+      discount: discountAmt,
+      tax,
+      total,
+    }
   }
 
   // ── Create ─────────────────────────────────────────────────────────────────
@@ -188,13 +209,59 @@ export function useOrders() {
     const parsed = orderFormSchema.parse(form)
 
     const customer = await db.customers.get(parsed.customerId)
-    if (!customer) throw new Error('Customer not found')
+    if (!customer) throw new Error('Customer not found');
+
+    const { consumeForOrder } = useMaterials()
+    const { create: createMeasurement } = useMeasurements()
+
+    const orderId = generateId()
+
+    // 1. Save inline measurement if requested
+    let resolvedMeasurementProfileId = form.measurementProfileId
+    if (form.inlineMeasurement?.saveToProfile && form.inlineMeasurement) {
+      const im = form.inlineMeasurement
+      const profile = await createMeasurement({
+        customerId:   form.customerId,
+        label:        im.label,
+        category:     im.category,
+        measurements: im.measurements,
+        unit:         im.unit,
+        notes:        im.notes,
+        isTemplate:   false,
+      })
+      resolvedMeasurementProfileId = profile.id
+    }
+
+    // 2. Consume inventory materials and build usage entries with movement IDs
+    const materialUsageWithIds: MaterialUsageEntry[] = []
+    for (const m of form.materialUsage) {
+      let stockMovementId: string | undefined
+      if (m.source === 'inventory' && m.materialId) {
+        const movement = await consumeForOrder(
+          m.materialId,
+          orderId,        // use the pre-generated ID below
+          m.quantity,
+          m.costAtTime,
+          m.unit,
+          `Consumed for order`,
+        )
+        stockMovementId = movement.id
+      }
+      materialUsageWithIds.push({
+        ...m,
+        id:              generateId(),
+        locked:          false,
+        stockMovementId,
+      })
+    }
 
     const taxRate  = auth.shop?.settings.taxRate ?? 0
-    const { subtotal, discount, tax, total } = calcPricing(
-      parsed.items,
-      parsed.discount,
-      parsed.discountType,
+    const { total, subtotal, discount, tax, materialSubtotal } = calcPricing(
+      form.items,
+      form.materialUsage,
+      form.additionalCosts,
+      form.discount,
+      form.discountType,
       taxRate,
     )
 
@@ -202,7 +269,7 @@ export function useOrders() {
     const depositAmount  = parsed.depositAmount ?? defaultDeposit
 
     const order: Order = {
-      id:                   generateId(),
+      id:                   orderId,
       shopId:               auth.shopId!,
       customerId:           parsed.customerId,
       customerName,
@@ -213,9 +280,13 @@ export function useOrders() {
       dueDate:              parsed.dueDate,
       deliveryDate:         undefined,
       items:                parsed.items.map(i => ({ ...i, id: generateId() })),
-      measurementProfileId: parsed.measurementProfileId,
-      customMeasurements:   undefined,
-      materialUsage:        [],
+      materialUsage:        materialUsageWithIds,
+      materialCost:         materialSubtotal,
+      additionalCosts:      form.additionalCosts,
+      measurementProfileId: resolvedMeasurementProfileId,
+      customMeasurements:   form.inlineMeasurement && !form.inlineMeasurement.saveToProfile
+        ? form.inlineMeasurement.measurements
+        : undefined,
       styleNotes:           parsed.styleNotes,
       designImages:         [],
       internalNotes:        undefined,
@@ -374,8 +445,80 @@ export function useOrders() {
     return updated
   }
 
+  const MATERIAL_EDIT_STATUSES: OrderStatus[] = ['pending', 'cutting']
+
+  async function updateMaterials(
+    orderId: string,
+    newUsage: MaterialUsageEntry[],
+    additionalCosts: AdditionalCost[],
+  ): Promise<Order> {
+    const order = await db.orders.get(orderId)
+    if (!order) throw new Error('Order not found')
+
+    if (!MATERIAL_EDIT_STATUSES.includes(order.status)) {
+      throw new Error(`Materials cannot be edited when order is in '${order.status}' status`)
+    }
+
+    const { consumeForOrder, reverseOrderConsumption, getMovementsForOrder } = useMaterials()
+
+    // Find entries that were removed or have quantity changes
+    const existingMovements = await getMovementsForOrder(orderId)
+    const existingConsumed = existingMovements.filter(m => m.movementType === 'order_consume')
+
+    // Reverse all existing consumed movements first
+    await reverseOrderConsumption(orderId)
+
+    // Re-consume based on the new usage list
+    const updatedUsage: MaterialUsageEntry[] = []
+    for (const entry of newUsage) {
+      let stockMovementId: string | undefined
+      if (entry.source === 'inventory' && entry.materialId && !entry.locked) {
+        const mov = await consumeForOrder(
+          entry.materialId,
+          orderId,
+          entry.quantity,
+          entry.costAtTime,
+          entry.unit,
+        )
+        stockMovementId = mov.id
+      }
+      updatedUsage.push({ ...entry, stockMovementId })
+    }
+
+    const taxRate = auth.shop?.settings.taxRate ?? 0
+    const pricing = calcPricing(
+      order.items,
+      updatedUsage,
+      additionalCosts,
+      order.discount,
+      order.discountType,
+      taxRate,
+    )
+
+    const updated: Order = {
+      ...order,
+      materialUsage:   updatedUsage,
+      additionalCosts,
+      materialCost:    pricing.materialSubtotal,
+      subtotal:        pricing.subtotal,
+      tax:             pricing.tax,
+      total:           pricing.total,
+      updatedAt:       nowISO(),
+    }
+
+    await sync.writeRecord('orders', 'UPDATE', updated)
+    await logEvent(orderId, 'material_updated', undefined, undefined, 'Materials updated')
+
+    const idx = orders.value.findIndex(o => o.id === orderId)
+    if (idx !== -1) orders.value[idx] = updated
+
+    return updated
+  }
+
   // ── Cancel ─────────────────────────────────────────────────────────────────
   async function cancel(id: string, reason?: string): Promise<void> {
+    const { reverseOrderConsumption } = useMaterials()
+    await reverseOrderConsumption(id)
     await updateStatus(id, 'cancelled', reason)
   }
 
@@ -404,6 +547,7 @@ export function useOrders() {
     updateStatus,
     advanceStatus,
     recordPayment,
+    updateMaterials,
     cancel,
     remove,
     calcPricing,
