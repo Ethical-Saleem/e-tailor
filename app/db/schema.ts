@@ -14,7 +14,9 @@ import type {
   OrderEvent,
   Material,
   MaterialPriceEntry,
+  MaterialStockMovement,
   Payment,
+  StoreItem,
   SyncRecord,
 } from '~/types/models'
 
@@ -42,6 +44,8 @@ class eTailorDatabase extends Dexie {
   materials!: Table<Material, string>
   materialPriceHistory!: Table<MaterialPriceEntry, string>
   payments!: Table<Payment, string>
+  materialStockMovements!: Table<MaterialStockMovement, string>
+  storeItems!: Table<StoreItem, string>
   // Sync infrastructure
   syncQueue!: Table<SyncRecord, number>
   syncMeta!: Table<SyncMeta, string>
@@ -165,7 +169,50 @@ class eTailorDatabase extends Dexie {
     })
 
     // Future migrations go here:
-    // this.version(2).stores({ ... }).upgrade(tx => { ... })
+    this.version(2).stores({
+      materialStockMovements: [
+        'id',
+        'shopId',
+        'materialId',
+        'orderId',
+        'movementType',
+        'createdAt',
+        '[materialId+createdAt]',
+        '[orderId+createdAt]',
+        '[shopId+createdAt]',
+      ].join(', '),
+    }).upgrade(_tx => {
+      // No data migration needed; new table starts empty
+    })
+
+    this.version(3).stores({
+      storeItems: [
+        'id',
+        'shopId',
+        'status',
+        'category',
+        'isDeleted',
+        '[shopId+status]',
+        '[shopId+isDeleted]',
+        '[shopId+category]',
+        'updatedAt',
+        '_syncStatus',
+      ].join(', '),
+      // Also patch materialStockMovements to index storeItemId:
+      materialStockMovements: [
+        'id',
+        'shopId',
+        'materialId',
+        'orderId',
+        'storeItemId',
+        'movementType',
+        'createdAt',
+        '[materialId+createdAt]',
+        '[orderId+createdAt]',
+        '[storeItemId+createdAt]',
+        '[shopId+createdAt]',
+      ].join(', '),
+    })
   }
 }
 

@@ -29,7 +29,9 @@ const SYNC_TABLES = [
   'orderEvents',
   'materials',
   'materialPriceHistory',
+  'materialStockMovements',
   'payments',
+  'storeItems',
 ] as const
 
 const APPEND_ONLY_TABLES = new Set<SyncTable>([
@@ -48,7 +50,9 @@ const TABLE_MAP: Record<SyncTable, string> = {
   orderEvents:          'order_events',
   materials:            'materials',
   materialPriceHistory: 'material_price_history',
+  materialStockMovements: 'material_stock_movements',
   payments:             'payments',
+  storeItems:           'store_items',
 } as const satisfies Record<SyncTable, string>
 
 const MUTABLE_SYNC_TABLES = SYNC_TABLES.filter(

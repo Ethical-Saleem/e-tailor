@@ -151,6 +151,8 @@ export interface Order extends BaseRecord {
   total: number
   depositAmount: number
   amountPaid: number
+  additionalCosts: AdditionalCost[]
+  materialCost: number // denormalised sum of charged material lines
   paymentStatus: PaymentStatus
 }
 
@@ -177,11 +179,25 @@ export interface OrderItem {
 }
 
 export interface MaterialUsageEntry {
-  materialId: UUID
+  id: string                    // local UUID for the line item
+  materialId: UUID              // null if customer-supplied (no inventory deduction)
   materialName: string
   quantity: number
   unit: string
-  costAtTime: number
+  source: 'inventory' | 'customer_supplied'
+  // Pricing
+  costAtTime: number            // material's current_unit_cost at the time of adding
+  unitPriceCharged: number      // what the tailor charges the customer (may differ from cost)
+  chargeToCustomer: boolean     // false = internal cost only, not added to order total
+  // State
+  locked: boolean               // true once order moves past 'cutting' (no free edits)
+  stockMovementId?: string      // reference to the material_stock_movements record
+}
+
+export interface AdditionalCost {
+  id: string
+  label: string                 // e.g. "Embroidery", "Lining", "Button holes"
+  amount: number
 }
 
 // ── Order Event (timeline) ────────────────────────────────────────────────────
@@ -207,6 +223,7 @@ export type OrderEventType =
   | 'design_uploaded'
   | 'due_date_changed'
   | 'priority_changed'
+  | 'material_updated'
 
 // ── Material ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +280,21 @@ export interface MaterialPriceEntry {
   createdAt: ISOTimestamp
 }
 
+export interface MaterialStockMovement {
+  id: UUID
+  shopId: UUID
+  materialId: UUID
+  orderId?: UUID
+  storeItemId?: UUID
+  movementType: 'purchase' | 'order_consume' | 'order_reverse' | 'manual_in' | 'manual_out' | 'sold' | 'store_item_consume' | 'store_item_reverse'
+  quantity: number
+  unit: string
+  unitCost: number
+  note?: string
+  createdBy?: string
+  createdAt: ISOTimestamp
+}
+
 // ── Payment ───────────────────────────────────────────────────────────────────
 
 export interface Payment {
@@ -279,6 +311,55 @@ export interface Payment {
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'mobile_money' | 'other'
+
+// ── Store Item ────────────────────────────────────────────────────────────────
+ 
+export type StoreItemStatus = 'draft' | 'in_production' | 'ready' | 'sold' | 'archived'
+ 
+export interface StoreItem extends BaseRecord {
+  title:                string
+  description?:         string
+  category:             GarmentCategory
+  status:               StoreItemStatus
+  // Measurements
+  measurementProfileId?: UUID
+  sizeLabel?:           string
+  // Materials (same shape as orders)
+  materialUsage:        MaterialUsageEntry[]
+  // Costing
+  materialCost:         number   // auto-computed from materialUsage inventory lines
+  additionalCosts:      AdditionalCost[]
+  costPrice:            number   // total = materialCost + additionalCosts
+  sellingPrice:         number   // tailor sets this
+  // Media
+  designImages:         string[]
+  // Sale record
+  soldAt?:              ISOTimestamp
+  soldPrice?:           number
+  soldToName?:          string
+  soldToPhone?:         string
+  salePaymentMethod?:   PaymentMethod
+  saleNotes?:           string
+}
+ 
+export interface StoreItemForm {
+  title:                string
+  description?:         string
+  category:             GarmentCategory
+  sizeLabel?:           string
+  materialUsage:        Omit<MaterialUsageEntry, 'id' | 'locked' | 'stockMovementId'>[]
+  additionalCosts:      AdditionalCost[]
+  sellingPrice:         number
+  measurementProfileId?: UUID
+}
+ 
+export interface SaleForm {
+  soldPrice:          number
+  soldToName?:        string
+  soldToPhone?:       string
+  salePaymentMethod:  PaymentMethod
+  saleNotes?:         string
+}
 
 // ── Sync Queue ────────────────────────────────────────────────────────────────
 
@@ -344,7 +425,18 @@ export interface CustomerForm {
 export interface OrderForm {
   customerId: UUID
   items: Omit<OrderItem, 'id'>[]
+  materialUsage: Omit<MaterialUsageEntry, 'id' | 'locked' | 'stockMovementId'>[]
+  additionalCosts: AdditionalCost[]
   measurementProfileId?: UUID
+  // inline measurement (tailor can record and optionally save)
+  inlineMeasurement?: {
+    label: string
+    category: GarmentCategory
+    measurements: MeasurementMap
+    unit: 'inches' | 'cm'
+    notes?: string
+    saveToProfile: boolean      // if true, persist to measurement_profiles
+  }
   customMeasurements?: MeasurementMap
   measurementCategory?: GarmentCategory
   priority: OrderPriority

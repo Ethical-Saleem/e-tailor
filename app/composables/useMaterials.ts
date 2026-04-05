@@ -6,7 +6,7 @@ import { useOfflineSync } from '~/composables/useOfflineSync'
 import { useAuthStore } from '~/stores/auth'
 import type {
   Material, MaterialForm, MaterialPriceEntry, PurchaseForm,
-  MaterialCategory,
+  MaterialCategory, MaterialStockMovement,
 } from '~/types/models'
 
 export const materialSchema = z.object({
@@ -84,8 +84,9 @@ export function useMaterials() {
   }
 
   async function getById(id: string): Promise<Material | undefined> {
-    const row = db.materials.get(id)
-    return coerceBoolsFromIndexedDB(row)
+    const row = await db.materials.get(id)
+    const mat = coerceBoolsFromIndexedDB<Material>(row)
+    return mat
   }
 
   async function getPriceHistory(materialId: string): Promise<MaterialPriceEntry[]> {
@@ -195,12 +196,97 @@ export function useMaterials() {
   }
 
   // ── Consume stock (when used in an order) ─────────────────────────────────
-  async function consumeStock(id: string, quantity: number): Promise<void> {
-    const material = await db.materials.get(id)
+  async function consumeForOrder(
+    materialId: string,
+    orderId: string,
+    quantity: number,
+    unitCost: number,
+    unit: string,
+    note?: string,
+  ): Promise<MaterialStockMovement> {
+    const material = await db.materials.get(materialId)
     if (!material) throw new Error('Material not found')
 
-    const newStock = Math.max(0, material.currentStock - quantity)
-    await adjustStock(id, newStock)
+    const movement: MaterialStockMovement = {
+      id:           generateId(),
+      shopId:       auth.shopId!,
+      materialId,
+      orderId,
+      movementType: 'order_consume',
+      quantity,
+      unit,
+      unitCost,
+      note,
+      createdAt:    nowISO(),
+    }
+
+    await sync.writeRecord('materialStockMovements', 'INSERT', movement as any)
+
+    const updated: Material = {
+      ...material,
+      currentStock: Math.max(0, material.currentStock - quantity),
+      updatedAt:    nowISO(),
+    }
+    await sync.writeRecord('materials', 'UPDATE', updated)
+
+    const idx = materials.value.findIndex(m => m.id === materialId)
+    if (idx !== -1) materials.value[idx] = updated
+
+    return movement
+  }
+
+  async function reverseOrderConsumption(orderId: string): Promise<void> {
+    // Load all consume movements for this order
+    const movements = await db.materialStockMovements
+      .where('[orderId+createdAt]')
+      .between([orderId, Dexie.minKey], [orderId, Dexie.maxKey])
+      .filter(m => m.movementType === 'order_consume')
+      .toArray()
+
+    for (const m of movements) {
+      const material = await db.materials.get(m.materialId)
+      if (!material) continue
+
+      const reversal: MaterialStockMovement = {
+        id:           generateId(),
+        shopId:       auth.shopId!,
+        materialId:   m.materialId,
+        orderId,
+        movementType: 'order_reverse',
+        quantity:     m.quantity,
+        unit:         m.unit,
+        unitCost:     m.unitCost,
+        note:         `Reversal of ${m.id}`,
+        createdAt:    nowISO(),
+      }
+
+      await sync.writeRecord('materialStockMovements', 'INSERT', reversal as any)
+
+      const restored: Material = {
+        ...material,
+        currentStock: material.currentStock + m.quantity,
+        updatedAt:    nowISO(),
+      }
+      await sync.writeRecord('materials', 'UPDATE', restored)
+
+      const idx = materials.value.findIndex(mat => mat.id === m.materialId)
+      if (idx !== -1) materials.value[idx] = restored
+    }
+  }
+
+  async function getMovementsForMaterial(materialId: string): Promise<MaterialStockMovement[]> {
+    return db.materialStockMovements
+      .where('[materialId+createdAt]')
+      .between([materialId, Dexie.minKey], [materialId, Dexie.maxKey])
+      .reverse()
+      .toArray()
+  }
+
+  async function getMovementsForOrder(orderId: string): Promise<MaterialStockMovement[]> {
+    return db.materialStockMovements
+      .where('[orderId+createdAt]')
+      .between([orderId, Dexie.minKey], [orderId, Dexie.maxKey])
+      .toArray()
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -226,7 +312,10 @@ export function useMaterials() {
     update,
     recordPurchase,
     adjustStock,
-    consumeStock,
+    consumeForOrder,
+    reverseOrderConsumption,
+    getMovementsForMaterial,
+    getMovementsForOrder,
     remove,
   }
 }
